@@ -97,16 +97,22 @@ In this part, the data of 11 main affected countries are selected to compare. Th
 
 Here are the number of confirmed cases, death cases and recovered cases of the top 11 countries:
 
-```{r, top11}
+```{r,top11 form}
 rank_total_top11 <- rank_total %>%
   filter(Rank<=11)
 rank_total_top11
+```
+
+Then two simple plots to display the number of confirmed cases and deaths for the top 11 countries:
+
+```{r, top11 plot, fig.height=3.5,fig.width = 7}
 ggplot(rank_total_top11, aes(x=reorder(`Country.Region`,Confirmed), y=Confirmed)) +
        geom_segment( aes(x=reorder(`Country.Region`,Confirmed), xend=reorder(`Country.Region`,Confirmed), y=0, yend=Confirmed)) +
        geom_point(size=5, color="red", fill=alpha("pink", 0.3), alpha=0.7, shape=21, stroke=2) +
        coord_flip() +
        labs(x="Country", y="Confirmed Cases", title="Top 11 Countries Confirmed Case Count") +
        scale_y_continuous(labels = comma) 
+
 ggplot(rank_total_top11, aes(x=reorder(`Country.Region`,Deaths), y=Deaths)) +
        geom_segment( aes(x=reorder(`Country.Region`,Deaths), xend=reorder(`Country.Region`,Deaths), y=0, yend=Deaths)) +
        geom_point(size=5, color="red", fill=alpha("pink", 0.3), alpha=0.7, shape=21, stroke=2) +
@@ -114,6 +120,8 @@ ggplot(rank_total_top11, aes(x=reorder(`Country.Region`,Deaths), y=Deaths)) +
        labs(x="Country", y="Deaths Cases", title="Top 11 Countries Deaths Case Count") +
        scale_y_continuous(labels = comma) 
 ```
+
+As we can see, the confirmed cases and deaths are way more than the other countries, even several times than other countries. Among the Europe countries, the death rate of Germany is the lowest.
 
 In the three plots below, I put the time series of confirmed cases, deaths and recovery of the 11 countries and see what can we find out from the plots. Here the logarithmic scale was used, because in this way we can better see the dynamics of increases and decreases that we would not observe using a linear scale.
 
@@ -179,36 +187,33 @@ ggplot(time_total_top11 %>% pivot_longer(
     ggtitle('COVID19 - Evolution for Top 11 Countries')
 ```
 
-
 Combining the four plots above together, we can tell that the most countries started to cure people effectively and the increase of new cases has been decreased. From the comparison, the most effective countries are Germany, Iran and Mainland China. Fortunately, among the top 11 countries, the increase of new cases are decreasing and people cured are increasing, which will result in the successfully control of the spread. However,  the situation in Russia and Brazil is still serious, the explosion of new cases is still there and the government should take more measures to control the infection growth, cure more people and stop the increase of deaths.
 
+## World Map of COVID-19 over time
+
+For this part, I used a time series confirmed case dataset of the world `time_series_covid_19_confirmed.csv` and show the variation of the cases in different countries over time in a world map view. In order to show the change clearly in one page, I choose 10 day as the intervel. From Jan.22.2020 to May.01.2020, there are 11 maps shown below.
+
+According to the maps, we can tell that almost every place in the world has been infected by COVID-19, and its infect speed is rapid, especially in the America and Europe (including Russia) area. The cirtles in these two areas obviously become bigger and bigger, which means the number of infected people is increasing rapidly. As for my home country China, even the whole area of Eastern Asia, the infected cases are also everywhere but the circles basically remain their sizes during this period, which means that the spread of COVID-19 has been controlled.
 
 
-# Ana
-```{r,fig.width=10, fig.height=16}
-df_lat_long_in <- read_csv('time_series_covid_19_confirmed.csv')
-n_times <- ncol(df_lat_long_in) - 4 # Province/State + Country/Region + Lat + Long
-n_times
-seq(1,n_times,10)
+```{r,world map, fig.width=10, fig.height=16}
+lat_long_o <- read_csv('time_series_covid_19_confirmed.csv')
+n_times <- ncol(lat_long_o) - 4 
 
-df_lat_long <- df_lat_long_in[,c(1:4,4 + seq(1,n_times,10))]
-# colnames(df_lat_long) <- c(colnames(df_lat_long)[1:4],
-#   str_c('Epoch: ', str_pad(as.character(seq(1,n_times,10)), 2, 'left', '0'),
-#         str_c(' - ', colnames(df_lat_long)[4 + seq(1,n_times,10)])))
-#colnames(df_lat_long)<- c(colnames(df_lat_long)[1:4],colnames(df_lat_long)[5:length(seq(1,n_times,10))])
-colnames(df_lat_long) <- c(colnames(df_lat_long)[1:4],
-                          str_c('Epoch: ', str_pad(as.character(1:length(seq(1,n_times,10))), 2, 'left', '0'),
-                          str_c(' - ', colnames(df_lat_long)[5:(4 + length(seq(1,n_times,10)))])))
-df_lat_long_pivot <- df_lat_long %>% pivot_longer(names_to = 'Confirmed.Time',
+lat_long <- lat_long_o[,c(1:4,4 + seq(1,n_times,10))]
+colnames(lat_long) <- c(colnames(lat_long)[1:4],
+                          str_c('Stage: ', str_pad(as.character(1:length(seq(1,n_times,10))), 2, 'left', '0'),
+                          str_c(' - ', colnames(lat_long)[5:(4 + length(seq(1,n_times,10)))])))
+lat_long_pivot <- lat_long %>% pivot_longer(names_to = 'Confirmed.Time',
                                                   values_to = 'Confirmed',
-                                                  cols = colnames(df_lat_long)[5:(4 + length(seq(1,n_times,10)))])
+                                                  cols = colnames(lat_long)[5:(4 + length(seq(1,n_times,10)))])
 
 world <- map_data('world')
 ggplot(legend = FALSE) +
   geom_polygon(data = world, aes(x = long, y = lat, group = group),
                color = 'black', fill = 'antiquewhite') +
   xlab('') + ylab('') +
-  geom_point(data = df_lat_long_pivot, color = 'black', fill = 'red',
+  geom_point(data = lat_long_pivot, color = 'black', fill = 'pink',
              shape = 21, alpha = 0.4,
              aes(x = Long, y = Lat, fill = Confirmed, size = Confirmed)) +
   theme_minimal() +
@@ -217,35 +222,60 @@ ggplot(legend = FALSE) +
         panel.background = element_rect(fill='lightblue', colour='blue')) +
   facet_wrap(.~Confirmed.Time, ncol = 2)
 
-###try
-# a<-df_lat_long_in[50,]
-# a_pivot <- a %>% pivot_longer(names_to = 'Confirmed.Time',
-#                                                   values_to = 'Confirmed',
-#                                                   cols = colnames(a)[5:10])
-# ggplot(legend = FALSE) +
-#   geom_polygon(data = world, aes(x = long, y = lat, group = group),
-#                color = 'black', fill = 'antiquewhite') +
-#   xlab('') + ylab('') + 
-#   geom_point(data = a_pivot, color = 'black', fill = 'red', 
-#              shape = 21, alpha = 0.4,
-#              aes(x = Long, y = Lat, fill = Confirmed, size = Confirmed)) +
-#   theme_minimal() +
-#   scale_size_continuous(range = c(4, 30)) + ggtitle('Occurrences Map - COVID19') +
-#   theme(text = element_text(size = 10), legend.position = 'top',
-#         panel.background = element_rect(fill='lightblue', colour='blue')) +
-#     facet_wrap(.~Confirmed.Time, ncol = 2)
-# df_lat_long <- df_lat_long_in
-# colnames(df_lat_long) <- c(colnames(df_lat_long)[1:4],
-#   str_c('Epoch: ', str_pad(as.character(1:n_times), 2, 'left', '0'),
-#        str_c(' - ', colnames(df_lat_long)[5:(4 + n_times)])))
-# 
-# df_lat_long_pivot <- df_lat_long %>% pivot_longer(names_to = 'Confirmed.Time',
-#                                                   values_to = 'Confirmed',
-#                                                   cols = colnames(df_lat_long)[5:(4 + n_times)])
 ```
 
+## US COVID-19
+
+Because the United States has the most confirmed cases in the world, in this part, I research more about the distribution of both infected cases and deaths in the US. Below are choropleth maps of confirmed cases and deaths in the US. We can see that the situation in New York and New Jersey is the most serious. The neighbor states of these two states are also under serious situation. 
+
+As for the western coast, California is the most serious. We can conclude that COVID-19 is easier to spread in city area because people lives closer in this kind of area and take more public transportation.
+
+```{r,us,fig.height=3.5,fig.width = 7}
+us_covid_data <- read.csv('time_series_covid_19_confirmed_US.csv')
+us_con <- us_covid_data[,c(7,ncol(us_covid_data))] 
+colnames(us_con) <- c("State","Confirmed")
+us_con <- us_con %>%
+  group_by(State) %>%
+  summarise_at(vars(Confirmed), sum) %>%
+  arrange(desc(Confirmed))
+
+us_covid_death <- read.csv('time_series_covid_19_deaths_US.csv')
+us_death <- us_covid_death[,c(7,ncol(us_covid_death))] 
+colnames(us_death) <- c("State","Death")
+us <- us_death %>%
+  group_by(State) %>%
+  summarise_at(vars(Death), sum)%>%
+  inner_join(us_con, by = c('State' = 'State')) %>%
+    arrange(desc(Confirmed))
+
+head(us,10)
+
+region <- us$State %>% tolower() 
+value <- us$Confirmed  %>% as.numeric()
+value[is.na(value)] = 0
+us_case <- data.frame(region, value,stringsAsFactors = FALSE)
+state_choropleth(us_case, 
+                 num_colors = 9,
+                 legend = "Total Cases", title = "Confirmed cases in US")
+
+value <- us$Death  %>% as.numeric()
+value[is.na(value)] = 0
+us_death <- data.frame(region, value,stringsAsFactors = FALSE)
+state_choropleth(us_death, 
+                 num_colors = 9,
+                 legend = "Total Deaths",title = "Death cases in US")
+```
 
 # Conclusion
-Please don't PANIC, stay safe, follow the WHO, and your nation guidelines. We all can defeat this together. Please don't spread rumors.
+
+Initially, rapid growth of COVID-19 was observed in China, which began to slow down around January, until growth was virtually unnoticeable in mid-Feburary. It seems that Asia has already gone through the worst period, and its rapid recovery from emipidemia raises hopes for other regions of the world. Since mid-Feburuary we have been observing a very rapid increase in the number of cases in other parts of the world, USA and Europe, which may mean that we are dealing with a similar situation as in China and the surrounding area with a delay of about a month. Around the turn of  May one can notice a progressive slowdown in the growth rate of new cases in these groups. China and countries in the surrounding area are undergoing rapid stabilization, while in Europe and other parts of the world the number of victims is growing rapidly. 
+
+For the number of people cured of COVID-19 disease. Fortunately, we see continuous growth in all countries. The growth rate is lower in China, but it results directly from a smaller number of people infected. A sudden drop to zero in the US around March 20 is probably a database error. Among the top 11 countries, the increase speed of deaths in Brazil and Russia still has not obvious trend of decrease. The most countries started to cure people effectively and the increase of new cases has been decreased. From the comparison, the most effective countries are Germany, Iran and Mainland China. Fortunately, among the top 11 countries, the increase of new cases are decreasing and people cured are increasing, which will result in the successfully control of the spread. However, the situation in Russia and Brazil is still serious, the explosion of new cases is still there and the government should take more measures to control the infection growth, cure more people and stop the increase of deaths.
+
+As the biggest infected country in the world, the United States, its confirmed cases, cure cases and deaths are still increasing quickly. Fortunately, the cure speed in going up and confirm case inscreasing speed is going down. Hopefully the patients will stop to increase in a month or so.
+
+I left the states and come back to China on May 3, 2020. At the time I submitted the report, I am in quarantine in a hotel in China for two days and I heard that everyone on my flight has been tested negative. God bless us. I came back through JFK and ICN airport. I never saw the airports that empty. Even in Incheon airport, there was only one flight at the transfer building that whole day.Everyone at airports wore a mask and some of them even wore protective suit. We are experiencing something historically and memorable. I sincerely hope that we human beings can overcome this disaster altogether, Please don't panic, stay safe, follow the WHO, and your nation guidelines. We all can defeat this together. 
 
 # Github Link
+
+https://github.com/keyuchen96/stat597_final_project
