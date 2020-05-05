@@ -1,30 +1,251 @@
 ---
-title: "Final Report"
+title: "Final Project Report"
 author: "Keyu Chen (kc1044)"
-date: "4/30/2020"
-output: html_document
+date: "4/15/2020"
+output: 
+  pdf_document:
+    number_sections: true
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = FALSE,warning=FALSE, message=FALSE)
 ```
 
-## R Markdown
-
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
-
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
-```{r cars}
-summary(cars)
+```{r, package, message=FALSE}
+library(rvest)
+library(ggplot2)
+library(choroplethr)
+library(tidyverse)
+library(dplyr)
+library(RColorBrewer)
+library(ggpubr)
+library(scales)
+library(maps)
 ```
 
-## Including Plots
+# Introduction
+This project gives insights on the worldwide spread of **novel Coronavirus** (also known as **COVID-19** of which “Corona” is “Co”, “Virus” is “vi”, and “Disease” is “d” and “19” stands for the year “2019”; whereas, “SARS-CoV-2” being the virus that causes the disease). It is a contagious respiratory virus, outbreak of it was first identified in Wuhan, Hubei, China in December 2019, and was recognized as **pandemic** by the **World Health Organization (WHO)** on Mar 11, 2020. As of April, more than 3,624,470 cases of **COVID-19** have been reported in more than 212 countries and territories, resulting in more than 250,986 deaths and more than 1,179,863 recoveries.
 
-You can also embed plots, for example:
+Coronavirus is now the must-have loudest topic around the world. It is a new virus to human beings and it caused a lot of confusion in the world, by its rapid spread and changed the lives of bilions people. A huge amount of people has died, lose their families & friends and lose their jobs because of it. Most industries have shut down because people have to stop to work and meet each other to avoid the spread of the virus. Because the virus is brand new to everyone, no one knows the definite effective measures to fight the virus. As the result, what human beings can do is to try some methods and explore the effective ones and stick to it. The measures that countries taking changed a lot as time goes, fortunately, the spread in some countries has been controlled.
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+# Data Discription
+The data used in this project is from a dataset on **Kaggle** website (https://www.kaggle.com/sudalairajkumar/novel-corona-virus-2019-dataset). The dataset is extracted from **COVID-19 Data Repository by the Center for Systems Science and Engineering (CSSE) at Johns Hopkins University** (https://github.com/CSSEGISandData/COVID-19). 
+
+Thanks so much to **Johns Hopkins University** for making the data available for educational and academic research purposes.
+
+The main data file analysized in this project is `covid_19_data.csv`. The detailed description of the dataset is below:
+
+- Sno - Serial number
+
+- ObservationDate - Date of the observation in MM/DD/YYYY
+
+- Province/State - Province or state of the observation (Could be empty when missing)
+
+- Country/Region - Country of observation
+
+- Last Update - Time in UTC at which the row is updated for the given province or country. (Not standardised and so please clean before using it)
+
+- Confirmed - Cumulative number of confirmed cases till that date
+
+- Deaths - Cumulative number of of deaths till that date
+
+- Recovered - Cumulative number of recovered cases till that date
+
+# Data Preprocessing
+## Data Cleaning
+After importing the worldwide dataset into a data frame, I modify some column names to easy-to-use ones, delete some columns that will not used in this project and transfer `ObservationDate` to dates formats which saved as variable `Date`. In order to focus on main affected countries, I add a variable `Rank` to the dataset, which numbered the rank of confirmed cases of countries.
+
+## Data Files
+I create two data frames in this part. The first one is the total number of affected cases, deaths and recovery in every country or region till now and the rank of confirmed cases of country. The second one shows the the change in confirmed cases, deaths and recovery over time at country level over time. The two data frames are saved into `.csv` files, separately.
+
+The first five rows of the two data frames are showed below:
+
+```{r,data preprocessing}
+covid_data <- read.csv('covid_19_data.csv')
+
+covid_data <- covid_data[,c(1,2,4,6:8)]
+names(covid_data)[1] <- "ID"
+
+covid_data$Date <- as.Date(covid_data$ObservationDate, format = "%m/%d/%y")
+#head(covid_data)
+
+rank_total <- covid_data %>%
+  group_by(Country.Region, Date) %>%
+  summarise_at(vars(Confirmed, Deaths, Recovered), sum) %>%
+  summarise_at(vars(Confirmed, Deaths, Recovered), max) %>%
+  arrange(desc(Confirmed)) 
+rank_total$Rank <- 1:nrow(rank_total)
+
+head(rank_total)
+
+time_total <- covid_data %>%
+  group_by(Country.Region, Date) %>%
+  summarise_at(vars(Confirmed, Deaths, Recovered), sum) %>%
+  inner_join(rank_total[,c(1,5)], by = c('Country.Region' = 'Country.Region')) %>%
+  arrange(Rank) 
+
+head(time_total)
+
+write.csv(time_total,file="time_total.csv")
+write.csv(time_total,file="rank_total.csv")
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+# Data Analysis and Visualization
+## Comparison of 11 Main Affected Countries
+
+In this part, the data of 11 main affected countries are selected to compare. The reason I choose 11 instead of 10 is that my home country China is ranked 11 and I would like to include it in my analysis.
+
+Here are the number of confirmed cases, death cases and recovered cases of the top 11 countries:
+
+```{r, top11}
+rank_total_top11 <- rank_total %>%
+  filter(Rank<=11)
+rank_total_top11
+ggplot(rank_total_top11, aes(x=reorder(`Country.Region`,Confirmed), y=Confirmed)) +
+       geom_segment( aes(x=reorder(`Country.Region`,Confirmed), xend=reorder(`Country.Region`,Confirmed), y=0, yend=Confirmed)) +
+       geom_point(size=5, color="red", fill=alpha("pink", 0.3), alpha=0.7, shape=21, stroke=2) +
+       coord_flip() +
+       labs(x="Country", y="Confirmed Cases", title="Top 11 Countries Confirmed Case Count") +
+       scale_y_continuous(labels = comma) 
+ggplot(rank_total_top11, aes(x=reorder(`Country.Region`,Deaths), y=Deaths)) +
+       geom_segment( aes(x=reorder(`Country.Region`,Deaths), xend=reorder(`Country.Region`,Deaths), y=0, yend=Deaths)) +
+       geom_point(size=5, color="red", fill=alpha("pink", 0.3), alpha=0.7, shape=21, stroke=2) +
+       coord_flip() +
+       labs(x="Country", y="Deaths Cases", title="Top 11 Countries Deaths Case Count") +
+       scale_y_continuous(labels = comma) 
+```
+
+In the three plots below, I put the time series of confirmed cases, deaths and recovery of the 11 countries and see what can we find out from the plots. Here the logarithmic scale was used, because in this way we can better see the dynamics of increases and decreases that we would not observe using a linear scale.
+
+According to the plot *Total Cases of Top 11 Countries*, the United States has the most cumulative confirmed cases while Mainland China has the least cases among these 11 countries. The outbreak firstly happened in China and slowed down after the beginning of Feburary. Now the situation in China has been stable. Also, the increase speed of cases in every country except Russia has been slowed down a lot after April. Hopefully the cases can almost stop to increase in May.
+
+```{r, top11 cases, fig.height=3.5,fig.width = 7}
+time_total_top11 <- time_total %>%
+  filter(Rank<=11)
+
+case_p <- ggplot(data = time_total_top11, aes(Date,Confirmed, colour = Country.Region)) +
+  geom_line(size = 1, alpha = 0.9) +
+  #geom_point() +
+  scale_colour_brewer(palette = "Paired") +
+  scale_y_continuous(trans="log10", labels = comma) +
+  scale_x_date(date_labels = "%b %d", date_breaks = "15 days") +
+  ggtitle("Total Cases of Top 11 Countries")
+
+case_p
+```
+
+Based on plot *Total Deaths of Top 11 Countries*, currently the United States has the most death cases while Russia has the least deaths happened. The growth of deaths tend to stop in most countries among the 11, however, the increase speed of deaths in Brazil and Russia still has not obvious trend of decrease.
+
+```{r, top11 death, fig.height=3.5,fig.width = 7}
+death_p <- ggplot(data = time_total_top11, aes(Date,Deaths, colour = Country.Region)) +
+  geom_line(size = 1, alpha = 0.9) +
+  #geom_point() +
+  scale_colour_brewer(palette = "Paired") +
+  scale_y_continuous(trans="log10", labels = comma) +
+  scale_x_date(date_labels = "%b %d", date_breaks = "15 days") +
+  ggtitle("Total Deaths of Top 11 Countries")
+
+death_p
+```
+
+From plot *Total Recovered of Top 11 Countries*, the United States, Germany and Spain has the most recovered cases while the United Kingdom has the least. 
+
+```{r, top11 recover, fig.height=3.5,fig.width = 7}
+recover_p <- ggplot(data = time_total_top11, aes(Date,Recovered, colour = Country.Region)) +
+  geom_line(size = 1, alpha = 0.9) +
+  #geom_point() +
+  scale_colour_brewer(palette = "Paired") +
+  scale_y_continuous(trans="log10", labels = comma) +
+  scale_x_date(date_labels = "%b %d", date_breaks = "15 days") +
+  ggtitle("Total Recovered of Top 11 Countries")
+
+recover_p
+```
+
+In order to visualize the confirmed, recovered and death cases for each place, I made plots of the change trend of the three variables for every country. From the plots we can see that the most patients in Germany, Iran and Mainland China have been cured, while in other countries, the numbers of infected people are way more than the recovered cases. 
+
+
+```{r, Evolution for Top 11 Countries}
+ggplot(time_total_top11 %>% pivot_longer(
+           cols = c('Confirmed', 'Deaths', 'Recovered'),
+           names_to = 'Feature', values_to = 'Count'),
+       
+       aes(x = Date, y = Count, 
+           group = Feature, colour = Feature)) +
+  geom_line(size = 0.6, alpha = 0.9) + #geom_point() +
+    
+  facet_wrap('.~Country.Region', ncol = 3, scale = 'free_y') + 
+    theme(text = element_text(size = 10), legend.position = 'top') +
+    ggtitle('COVID19 - Evolution for Top 11 Countries')
+```
+
+
+Combining the four plots above together, we can tell that the most countries started to cure people effectively and the increase of new cases has been decreased. From the comparison, the most effective countries are Germany, Iran and Mainland China. Fortunately, among the top 11 countries, the increase of new cases are decreasing and people cured are increasing, which will result in the successfully control of the spread. However,  the situation in Russia and Brazil is still serious, the explosion of new cases is still there and the government should take more measures to control the infection growth, cure more people and stop the increase of deaths.
+
+
+
+# Ana
+```{r,fig.width=10, fig.height=16}
+df_lat_long_in <- read_csv('time_series_covid_19_confirmed.csv')
+n_times <- ncol(df_lat_long_in) - 4 # Province/State + Country/Region + Lat + Long
+n_times
+seq(1,n_times,10)
+
+df_lat_long <- df_lat_long_in[,c(1:4,4 + seq(1,n_times,10))]
+# colnames(df_lat_long) <- c(colnames(df_lat_long)[1:4],
+#   str_c('Epoch: ', str_pad(as.character(seq(1,n_times,10)), 2, 'left', '0'),
+#         str_c(' - ', colnames(df_lat_long)[4 + seq(1,n_times,10)])))
+#colnames(df_lat_long)<- c(colnames(df_lat_long)[1:4],colnames(df_lat_long)[5:length(seq(1,n_times,10))])
+colnames(df_lat_long) <- c(colnames(df_lat_long)[1:4],
+                          str_c('Epoch: ', str_pad(as.character(1:length(seq(1,n_times,10))), 2, 'left', '0'),
+                          str_c(' - ', colnames(df_lat_long)[5:(4 + length(seq(1,n_times,10)))])))
+df_lat_long_pivot <- df_lat_long %>% pivot_longer(names_to = 'Confirmed.Time',
+                                                  values_to = 'Confirmed',
+                                                  cols = colnames(df_lat_long)[5:(4 + length(seq(1,n_times,10)))])
+
+world <- map_data('world')
+ggplot(legend = FALSE) +
+  geom_polygon(data = world, aes(x = long, y = lat, group = group),
+               color = 'black', fill = 'antiquewhite') +
+  xlab('') + ylab('') +
+  geom_point(data = df_lat_long_pivot, color = 'black', fill = 'red',
+             shape = 21, alpha = 0.4,
+             aes(x = Long, y = Lat, fill = Confirmed, size = Confirmed)) +
+  theme_minimal() +
+  scale_size_continuous(range = c(4, 30)) + ggtitle('World Map - COVID19') +
+  theme(text = element_text(size = 10), legend.position = 'top',
+        panel.background = element_rect(fill='lightblue', colour='blue')) +
+  facet_wrap(.~Confirmed.Time, ncol = 2)
+
+###try
+# a<-df_lat_long_in[50,]
+# a_pivot <- a %>% pivot_longer(names_to = 'Confirmed.Time',
+#                                                   values_to = 'Confirmed',
+#                                                   cols = colnames(a)[5:10])
+# ggplot(legend = FALSE) +
+#   geom_polygon(data = world, aes(x = long, y = lat, group = group),
+#                color = 'black', fill = 'antiquewhite') +
+#   xlab('') + ylab('') + 
+#   geom_point(data = a_pivot, color = 'black', fill = 'red', 
+#              shape = 21, alpha = 0.4,
+#              aes(x = Long, y = Lat, fill = Confirmed, size = Confirmed)) +
+#   theme_minimal() +
+#   scale_size_continuous(range = c(4, 30)) + ggtitle('Occurrences Map - COVID19') +
+#   theme(text = element_text(size = 10), legend.position = 'top',
+#         panel.background = element_rect(fill='lightblue', colour='blue')) +
+#     facet_wrap(.~Confirmed.Time, ncol = 2)
+# df_lat_long <- df_lat_long_in
+# colnames(df_lat_long) <- c(colnames(df_lat_long)[1:4],
+#   str_c('Epoch: ', str_pad(as.character(1:n_times), 2, 'left', '0'),
+#        str_c(' - ', colnames(df_lat_long)[5:(4 + n_times)])))
+# 
+# df_lat_long_pivot <- df_lat_long %>% pivot_longer(names_to = 'Confirmed.Time',
+#                                                   values_to = 'Confirmed',
+#                                                   cols = colnames(df_lat_long)[5:(4 + n_times)])
+```
+
+
+# Conclusion
+Please don't PANIC, stay safe, follow the WHO, and your nation guidelines. We all can defeat this together. Please don't spread rumors.
+
+# Github Link
