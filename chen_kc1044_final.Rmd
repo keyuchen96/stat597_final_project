@@ -87,7 +87,7 @@ time_total <- covid_data %>%
 head(time_total)
 
 write.csv(time_total,file="time_total.csv")
-write.csv(time_total,file="rank_total.csv")
+write.csv(rank_total,file="rank_total.csv")
 ```
 
 # Data Analysis and Visualization
